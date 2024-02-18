@@ -1,26 +1,28 @@
-# Use a base image with R pre-installed (e.g., rocker/r-ver)
-FROM rocker/r-ver:latest
+FROM rocker/r-ver:4.1.2
 
-# Install system dependencies for R and RStudio
-RUN apt-get update && apt-get install -y \
-    sudo \
-    gdebi-core \
-    pandoc \
-    pandoc-citeproc \
-    libcurl4-gnutls-dev \
-    libcairo2-dev \
-    libxt-dev \
+# [Option] Install zsh
+ARG INSTALL_ZSH="true"
+# [Option] Upgrade OS packages to their latest versions
+ARG UPGRADE_PACKAGES="false"
+
+# Install needed packages and setup non-root user. Use a separate RUN statement to add your own dependencies.
+ARG USERNAME=docker
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+COPY library-scripts/*.sh /tmp/library-scripts/
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && /bin/bash /tmp/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" \
+    && apt-get -y install libzip-dev \
+    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts
+
+# [Optional] Uncomment this section to install additional OS packages.
+RUN apt-get update \
+    && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends libcurl4-openssl-dev \
     libssl-dev \
-    libssh2-1-dev \
-    && rm -rf /var/lib/apt/lists/*
+    libxml2-dev \
+    python3-pip \
+    libxt6
 
-# Download and install RStudio Server
-RUN wget -q https://download2.rstudio.org/server/bionic/amd64/rstudio-server-1.4.1106-amd64.deb \
-    && gdebi -n rstudio-server-1.4.1106-amd64.deb \
-    && rm rstudio-server-1.4.1106-amd64.deb
-
-# Expose the port RStudio Server runs on
-EXPOSE 8787
-
-# Use init to handle system signals
-ENTRYPOINT ["/usr/lib/rstudio-server/bin/rserver", "--server-daemonize=0"]
+RUN python3 -m pip install setuptools
+RUN python3 -m pip install radian
