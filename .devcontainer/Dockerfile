@@ -1,28 +1,13 @@
-FROM rocker/r-ver:4.1.2
+# Pre-built Dev Container Image for R. More info: https://github.com/rocker-org/devcontainer-images/pkgs/container/devcontainer%2Ftidyverse
+# Available R version: 4, 4.1, 4.0
+ARG VARIANT="4.2"
+FROM ghcr.io/rocker-org/devcontainer/tidyverse:${VARIANT}
 
-# [Option] Install zsh
-ARG INSTALL_ZSH="true"
-# [Option] Upgrade OS packages to their latest versions
-ARG UPGRADE_PACKAGES="false"
+RUN install2.r --error --skipinstalled -n -1 \
+        devtools \
+    && rm -rf /tmp/downloaded_packages \
+    && R -q -e 'remotes::install_github("andy-iskauskas/hmer")'
 
-# Install needed packages and setup non-root user. Use a separate RUN statement to add your own dependencies.
-ARG USERNAME=docker
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-COPY library-scripts/*.sh /tmp/library-scripts/
-RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
-    && /bin/bash /tmp/library-scripts/common-debian.sh "${INSTALL_ZSH}" "${USERNAME}" "${USER_UID}" "${USER_GID}" "${UPGRADE_PACKAGES}" \
-    && apt-get -y install libzip-dev \
-    && apt-get autoremove -y && apt-get clean -y && rm -rf /var/lib/apt/lists/* /tmp/library-scripts
-
-# [Optional] Uncomment this section to install additional OS packages.
-RUN apt-get update \
-    && export DEBIAN_FRONTEND=noninteractive \
-    && apt-get -y install --no-install-recommends libcurl4-openssl-dev \
-    libssl-dev \
-    libxml2-dev \
-    python3-pip \
-    libxt6
-
-RUN python3 -m pip install setuptools
-RUN python3 -m pip install radian
+# Install Python packages
+COPY requirements.txt /tmp/pip-tmp/
+RUN python3 -m pip --disable-pip-version-check --no-cache-dir install -r /tmp/pip-tmp/requirements.txt
